@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<style>
+@font-face{font-family:'Space Grotesk';font-weight:400;src:url(data:font/ttf;base64,{{FONTE_400}})}
+@font-face{font-family:'Space Grotesk';font-weight:500;src:url(data:font/ttf;base64,{{FONTE_500}})}
+@font-face{font-family:'Space Grotesk';font-weight:700;src:url(data:font/ttf;base64,{{FONTE_700}})}
+html,body{margin:0;background:transparent}
+</style>
+</head>
+<body>
+<div style="width: 1120px; height: 300px; box-sizing: border-box; background: #0f1115; border-radius: 28px; overflow: hidden; display: flex; flex-direction: column; font-family: 'Space Grotesk', system-ui, sans-serif; color: #ffffff">
+<div style="flex-grow: 1; display: flex; align-items: center; justify-content: space-between; gap: 48px; padding: 0 56px 0 44px">
+<img src="data:image/png;base64,{{LOGO}}" alt="orira." style="width: 312px; height: 120px; flex-shrink: 0">
+<div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px; min-width: 0">
+<div style="font-size: {{TAMANHO_NOME}}px; font-weight: 700; letter-spacing: -1px; line-height: 1.1; white-space: nowrap">{{NOME}}</div>
+<div style="display: flex; align-items: center; gap: 12px">
+<div style="width: 10px; height: 10px; background: #a3e635; flex-shrink: 0"></div>
+<div style="font-size: {{TAMANHO_CARGO}}px; font-weight: 500; color: #c9c9d1; white-space: nowrap">{{CARGO}}</div>
+</div>
+</div>
+</div>
+<div style="height: 1px; background: #2a2d34; margin: 0 56px; flex-shrink: 0"></div>
+<div style="height: 84px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 32px; padding: 0 56px">
+<div style="font-size: 18px; color: #a3a3ad; white-space: nowrap">O sistema operativo da tua academia<span style="color: #a3e635; font-weight: 700">.</span></div>
+<div style="display: flex; align-items: center; gap: 20px; font-size: {{TAMANHO_EMAIL}}px; flex-shrink: 0">
+<div style="color: #e6e6ea">{{EMAIL}}</div>
+<div style="width: 1px; height: 18px; background: #3a3a40"></div>
+<div style="color: #e6e6ea; font-weight: 500">orira<span style="color: #a3e635">.app</span></div>
+</div>
+</div>
+</div>
+</body>
+</html>
