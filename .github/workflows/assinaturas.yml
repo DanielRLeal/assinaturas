@@ -1,0 +1,63 @@
+name: Assinaturas de email
+
+on:
+  schedule:
+    - cron: "17 6 * * *"   # todos os dias, cerca das 7h de Lisboa
+  workflow_dispatch:        # permite correr à mão no separador Actions
+
+permissions:
+  contents: write
+
+concurrency:
+  group: assinaturas
+  cancel-in-progress: false
+
+jobs:
+  sincronizar:
+    runs-on: ubuntu-latest
+    env:
+      GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+      ADMIN_EMAIL: ${{ vars.ADMIN_EMAIL }}
+      URL_BASE_IMAGENS: ${{ vars.URL_BASE_IMAGENS }}
+      URL_SITE: ${{ vars.URL_SITE || 'https://orira.app' }}
+      EXCLUIR: ${{ vars.EXCLUIR }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependências
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Gerar imagens em falta
+        run: python sincronizar.py gerar
+
+      - name: Publicar imagens
+        id: publicar
+        run: |
+          git config user.name "assinaturas-bot"
+          git config user.email "assinaturas-bot@users.noreply.github.com"
+          git add docs
+          if git diff --cached --quiet; then
+            echo "novas=nao" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "Atualizar assinaturas"
+            git push
+            echo "novas=sim" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Esperar pela publicação no GitHub Pages
+        if: steps.publicar.outputs.novas == 'sim'
+        run: sleep 120
+
+      - name: Aplicar assinaturas no Gmail
+        run: python sincronizar.py aplicar
+
+      - name: Guardar o que ficou aplicado
+        run: |
+          git add docs
+          git diff --cached --quiet || (git commit -m "Assinaturas aplicadas" && git push)
