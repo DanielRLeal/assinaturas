@@ -7,6 +7,8 @@ on:
 
 permissions:
   contents: write
+  pages: write              # publicar as imagens no GitHub Pages
+  id-token: write           # entrar no Google Cloud sem chave (Workload Identity Federation)
 
 concurrency:
   group: assinaturas
@@ -15,14 +17,23 @@ concurrency:
 jobs:
   sincronizar:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
     env:
       GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+      CONTA_SERVICO: ${{ vars.CONTA_SERVICO }}
       ADMIN_EMAIL: ${{ vars.ADMIN_EMAIL }}
       URL_BASE_IMAGENS: ${{ vars.URL_BASE_IMAGENS }}
       URL_SITE: ${{ vars.URL_SITE || 'https://orira.app' }}
       EXCLUIR: ${{ vars.EXCLUIR }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Entrar no Google Cloud (sem chave)
+        if: vars.WIF_PROVIDER != ''
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
 
       - uses: actions/setup-python@v5
         with:
@@ -36,7 +47,7 @@ jobs:
       - name: Gerar imagens em falta
         run: python sincronizar.py gerar
 
-      - name: Publicar imagens
+      - name: Guardar as imagens no repositório
         id: publicar
         run: |
           git config user.name "assinaturas-bot"
@@ -50,9 +61,18 @@ jobs:
             echo "novas=sim" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Esperar pela publicação no GitHub Pages
+      # Um push feito com o GITHUB_TOKEN não reconstrói o Pages; publica-se aqui.
+      - uses: actions/configure-pages@v5
         if: steps.publicar.outputs.novas == 'sim'
-        run: sleep 120
+
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.publicar.outputs.novas == 'sim'
+        with:
+          path: docs
+
+      - name: Publicar no GitHub Pages
+        if: steps.publicar.outputs.novas == 'sim'
+        uses: actions/deploy-pages@v4
 
       - name: Aplicar assinaturas no Gmail
         run: python sincronizar.py aplicar

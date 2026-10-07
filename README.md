@@ -13,17 +13,28 @@ Quem já tem a assinatura certa não é tocado.
 
 ### 1. Repositório no GitHub
 
-1. Cria um repositório novo (por exemplo `assinaturas`) e carrega para lá todos os ficheiros desta pasta.
-2. Em **Settings › Pages**, escolhe **Deploy from a branch**, ramo `main`, pasta `/docs`, e guarda.
-3. Anota o endereço que o GitHub mostra (por exemplo `https://orira.github.io/assinaturas`).
+1. Carrega estes ficheiros para um repositório (por exemplo `assinaturas`).
+2. Em **Settings › Pages**, em **Source**, escolhe **GitHub Actions**. O próprio fluxo publica as imagens (um push feito pelo Actions não reconstrói o Pages sozinho).
+3. O endereço das imagens fica `https://<conta>.github.io/assinaturas`.
 
-### 2. Conta de serviço (console.cloud.google.com)
+### 2. Google Cloud, sem chave (Workload Identity Federation)
 
-1. Cria um projeto (por exemplo "Assinaturas Orira").
-2. Em **APIs e serviços › Biblioteca**, ativa a **Gmail API** e a **Admin SDK API**.
-3. Em **IAM e administração › Contas de serviço**, cria uma conta de serviço.
-4. Abre-a, vai a **Chaves › Adicionar chave › Criar nova chave › JSON** e descarrega o ficheiro.
-5. Copia o **ID de cliente** (número longo) da conta de serviço.
+O GitHub Actions entra no Google Cloud sem ficheiro de chave: o Google confia nos tokens que o GitHub emite para este repositório, e só para ele. Nas organizações criadas depois de maio de 2024 a criação de chaves está bloqueada por defeito, e assim não há nenhuma chave para perder.
+
+Com o `gcloud` (substitui `PROJETO` e `CONTA/REPO`):
+
+```
+gcloud projects create PROJETO --name="Assinaturas Orira"
+gcloud config set project PROJETO
+gcloud services enable gmail.googleapis.com admin.googleapis.com iamcredentials.googleapis.com
+gcloud iam service-accounts create assinaturas --display-name="Assinaturas de email"
+gcloud iam workload-identity-pools create github --location=global --display-name="GitHub"
+gcloud iam workload-identity-pools providers create-oidc assinaturas --location=global   --workload-identity-pool=github --issuer-uri=https://token.actions.githubusercontent.com   --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository"   --attribute-condition="assertion.repository=='CONTA/REPO'"
+gcloud iam service-accounts add-iam-policy-binding assinaturas@PROJETO.iam.gserviceaccount.com   --role=roles/iam.serviceAccountTokenCreator   --member="principalSet://iam.googleapis.com/projects/NUMERO_DO_PROJETO/locations/global/workloadIdentityPools/github/attribute.repository/CONTA/REPO"
+gcloud iam service-accounts describe assinaturas@PROJETO.iam.gserviceaccount.com --format="value(oauth2ClientId)"
+```
+
+O último comando mostra o **ID de cliente** (número longo) da conta de serviço.
 
 ### 3. Autorização no Workspace (admin.google.com, como superadministrador)
 
@@ -34,23 +45,25 @@ Quem já tem a assinatura certa não é tocado.
    https://www.googleapis.com/auth/admin.directory.user.readonly,https://www.googleapis.com/auth/gmail.settings.basic
    ```
 
-### 4. Segredos e variáveis no GitHub
+### 4. Variáveis no GitHub
 
-Em **Settings › Secrets and variables › Actions**:
+Em **Settings › Secrets and variables › Actions › Variables**:
 
-| Tipo | Nome | Valor |
-|---|---|---|
-| Secret | `GOOGLE_SERVICE_ACCOUNT_JSON` | o conteúdo completo do ficheiro JSON |
-| Variable | `ADMIN_EMAIL` | email de um superadministrador (por exemplo `tomas.leal@orira.app`) |
-| Variable | `URL_BASE_IMAGENS` | o endereço do GitHub Pages do passo 1, sem barra no fim |
-| Variable | `EXCLUIR` | opcional: emails a ignorar, separados por vírgulas |
+| Nome | Valor |
+|---|---|
+| `WIF_PROVIDER` | `projects/NUMERO_DO_PROJETO/locations/global/workloadIdentityPools/github/providers/assinaturas` |
+| `CONTA_SERVICO` | `assinaturas@PROJETO.iam.gserviceaccount.com` |
+| `ADMIN_EMAIL` | email de um superadministrador do Workspace |
+| `URL_BASE_IMAGENS` | o endereço do GitHub Pages do passo 1, sem barra no fim |
+| `EXCLUIR` | opcional: emails a ignorar, separados por vírgulas |
 
-Depois de guardares o segredo, apaga o ficheiro JSON do teu computador.
+Em alternativa à federação, ainda funciona com uma chave JSON no secret `GOOGLE_SERVICE_ACCOUNT_JSON` (sem `WIF_PROVIDER`).
 
 ### 5. Primeira execução
 
 No separador **Actions**, abre **Assinaturas de email** e clica em **Run workflow**.
 A primeira execução define a assinatura de toda a equipa. A partir daí corre sozinha todos os dias de manhã.
+Antes de mexer no Gmail de alguém, o fluxo confirma que a imagem dessa pessoa já responde no endereço público; se não responder, fica para a execução seguinte.
 
 ## Dia a dia
 
@@ -74,4 +87,4 @@ As imagens aparecem em `docs/`. Nenhum destes dois comandos altera contas de Gma
 
 - A assinatura substitui a que cada pessoa tiver no Gmail.
 - O GitHub Pages é público: as imagens e os ficheiros `docs/estado.json` e `docs/pendentes.json` (emails, nomes e cargos) ficam acessíveis a quem souber o endereço. Num plano gratuito do GitHub, o repositório também tem de ser público.
-- A conta de serviço consegue alterar as definições de Gmail de toda a equipa. Guarda a chave só como segredo do GitHub.
+- A conta de serviço consegue alterar as definições de Gmail de toda a equipa. Só este repositório a pode usar (condição do fornecedor de identidade).

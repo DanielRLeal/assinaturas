@@ -36,8 +36,11 @@ PENDENTES = SAIDA / "pendentes.json"
 # ---------------------------------------------------------------------------
 # Configuração (variáveis de ambiente; no GitHub definem-se em Settings)
 # ---------------------------------------------------------------------------
-# Conteúdo do ficheiro JSON da conta de serviço.
+# Conteúdo do ficheiro JSON da conta de serviço (opcional: sem chave usa-se a
+# Workload Identity Federation do GitHub Actions e CONTA_SERVICO).
 CHAVE_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "")
+# Email da conta de serviço, quando não há chave JSON.
+CONTA_SERVICO = os.environ.get("CONTA_SERVICO", "")
 # Email de um superadministrador do Workspace (para ler a lista de membros).
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "")
 # Endereço público da pasta docs/, por exemplo https://orira.github.io/assinaturas
@@ -59,11 +62,27 @@ AMBITO_GMAIL = ["https://www.googleapis.com/auth/gmail.settings.basic"]
 def credenciais(ambito, em_nome_de):
     from google.oauth2 import service_account
 
-    if not CHAVE_JSON:
-        sys.exit("Falta a variável GOOGLE_SERVICE_ACCOUNT_JSON.")
-    return service_account.Credentials.from_service_account_info(
-        json.loads(CHAVE_JSON), scopes=ambito
-    ).with_subject(em_nome_de)
+    if CHAVE_JSON:
+        return service_account.Credentials.from_service_account_info(
+            json.loads(CHAVE_JSON), scopes=ambito
+        ).with_subject(em_nome_de)
+
+    # Sem chave: o GitHub Actions entra no Google Cloud por Workload Identity
+    # Federation e a conta de serviço assina o pedido pela IAM Credentials API.
+    import google.auth
+    from google.auth import iam
+    from google.auth.transport.requests import Request
+
+    if not CONTA_SERVICO:
+        sys.exit("Falta a variável GOOGLE_SERVICE_ACCOUNT_JSON ou CONTA_SERVICO.")
+    origem, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
+    return service_account.Credentials(
+        signer=iam.Signer(Request(), origem, CONTA_SERVICO),
+        service_account_email=CONTA_SERVICO,
+        token_uri="https://oauth2.googleapis.com/token",
+        scopes=ambito,
+        subject=em_nome_de,
+    )
 
 
 def membros_do_workspace():
@@ -215,6 +234,30 @@ def html_da_assinatura(email, dados):
     )
 
 
+def imagem_publicada(email):
+    """True quando a imagem já responde no endereço público."""
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen(f"{URL_BASE_IMAGENS}/{nome_do_ficheiro(email)}", timeout=10) as r:
+            return r.status == 200
+    except Exception:
+        return False
+
+
+def esperar_pelas_imagens(emails, limite=300):
+    """Uma assinatura com a imagem em falta mostra-se partida a quem a recebe."""
+    import time
+
+    falta = set(emails)
+    fim = time.monotonic() + limite
+    while falta and time.monotonic() < fim:
+        falta = {e for e in falta if not imagem_publicada(e)}
+        if falta:
+            time.sleep(10)
+    return falta
+
+
 def aplicar(args):
     if not URL_BASE_IMAGENS:
         sys.exit("Falta a variável URL_BASE_IMAGENS.")
@@ -223,8 +266,14 @@ def aplicar(args):
         print("Nada por aplicar.")
         return
 
+    sem_imagem = set() if args.dry_run else esperar_pelas_imagens(pendentes)
+    for email in sorted(sem_imagem):
+        print(f"adiada   {email}: a imagem ainda não está publicada")
+
     falhas = 0
     for email, dados in sorted(pendentes.copy().items()):
+        if email in sem_imagem:
+            continue
         assinatura = html_da_assinatura(email, dados)
         if args.dry_run:
             print(f"[teste] {email}\n        {assinatura}\n")
