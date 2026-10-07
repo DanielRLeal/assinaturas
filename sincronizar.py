@@ -50,6 +50,12 @@ URL_SITE = os.environ.get("URL_SITE", "https://orira.app")
 # Emails a ignorar (caixas partilhadas, contas técnicas), separados por vírgulas.
 EXCLUIR = {e.strip().lower() for e in os.environ.get("EXCLUIR", "").split(",") if e.strip()}
 
+# Identificação da empresa (art. 171.º do CSC), em texto por baixo da imagem.
+# A morada fica na página de contactos, para onde aponta "Dados legais".
+EMPRESA = "Daniel Romão Leal, Sociedade Unipessoal, Lda."
+NIPC = "519502078"
+URL_DADOS_LEGAIS = os.environ.get("URL_DADOS_LEGAIS", f"{URL_SITE}/contacto")
+
 LARGURA_NO_EMAIL = 560  # a imagem tem 1120 px, por isso fica nítida em ecrãs retina
 
 AMBITO_DIRETORIO = ["https://www.googleapis.com/auth/admin.directory.user.readonly"]
@@ -140,8 +146,9 @@ def modelo_base():
 
 
 def versao_do_design():
-    """Muda quando o modelo, o logótipo ou as fontes mudam: obriga a gerar tudo de novo."""
+    """Muda quando o modelo, o logótipo, as fontes ou a linha legal mudam: obriga a refazer tudo."""
     h = hashlib.sha256()
+    h.update(f"{EMPRESA}|{NIPC}|{URL_DADOS_LEGAIS}".encode())
     for f in sorted(RECURSOS.glob("*")):
         if f.suffix in {".html", ".png", ".ttf"}:
             h.update(f.read_bytes())
@@ -231,6 +238,11 @@ def html_da_assinatura(email, dados):
         f'<a href="{URL_SITE}" target="_blank">'
         f'<img src="{src}" alt="{alt}" width="{LARGURA_NO_EMAIL}" '
         f'style="display:block;border:0;max-width:100%;height:auto"></a>'
+        f'<div style="margin-top:8px;font-family:Arial,Helvetica,sans-serif;font-size:11px;'
+        f'line-height:16px;color:#8a8a93">'
+        f'{html.escape(EMPRESA)} &middot; NIPC {NIPC} &middot; '
+        f'<a href="{URL_DADOS_LEGAIS}" target="_blank" style="color:#8a8a93;text-decoration:underline">'
+        f'Dados legais</a></div>'
     )
 
 

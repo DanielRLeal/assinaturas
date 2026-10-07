@@ -70,6 +70,7 @@ Antes de mexer no Gmail de alguém, o fluxo confirma que a imagem dessa pessoa j
 - **Novo membro:** cria a conta no Workspace e preenche o **cargo** (Diretório › Utilizadores › a pessoa › Informações do funcionário). Na manhã seguinte tem a assinatura. Para ser imediato, clica em **Run workflow**.
 - **Mudança de cargo ou de nome:** altera no Workspace; a imagem é refeita na execução seguinte.
 - **Sem cargo preenchido:** a pessoa é ignorada, e o registo da execução indica quem ficou de fora.
+- **Linha legal:** por baixo da imagem vai, em texto, a firma, o NIPC e um link "Dados legais" para a página de contactos (art. 171.º do CSC). Muda-se nas constantes `EMPRESA` e `NIPC` do `sincronizar.py`; alterá-las volta a aplicar a assinatura a todos.
 - **Mudar o design:** edita `recursos/modelo.html` (ou troca `recursos/logo.png`); todas as assinaturas são refeitas na execução seguinte.
 
 ## Experimentar no teu computador
