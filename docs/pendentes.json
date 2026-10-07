@@ -1,1 +1,12 @@
-{}
+{
+  "daniel@orira.app": {
+    "cargo": "Fundador",
+    "marca": "a5dc168718b3",
+    "nome": "Daniel Leal"
+  },
+  "tomas.leal@orira.app": {
+    "cargo": "Colaborador",
+    "marca": "cc4b13f17fdb",
+    "nome": "Tomás Leal"
+  }
+}
